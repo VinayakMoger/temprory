@@ -1,0 +1,496 @@
+
+
+
+
+
+
+
+
+
+
+1. file
+
+
+
+
+package com.ather.dummyapplication
+
+
+import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Spinner
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import java.util.UUID // For generating unique IDs
+
+// List to store all submitted complaints
+private val submittedComplaints: MutableList<Complaints> = mutableListOf()
+
+class MainActivity : AppCompatActivity() {
+
+    // UI elements
+    private lateinit var spinnerServiceType: Spinner
+    private lateinit var spinnerDepartment: Spinner
+    private lateinit var spinnerSubDepartment: Spinner
+    private lateinit var tvSubDepartment: TextView
+    private lateinit var spinnerSubServiceType: Spinner
+    private lateinit var tvSubServiceType: TextView
+    private lateinit var spinnerDistrict: Spinner
+    private lateinit var spinnerTaluk: Spinner
+    private lateinit var tvTaluk: TextView
+    private lateinit var tvUserLocation: TextView
+    private lateinit var etComplaintDetails: EditText
+    private lateinit var btnAttachFile: Button
+    private lateinit var tvAttachedFilesCount: TextView
+    private lateinit var btnSubmitComplaint: Button
+
+    // Data lists for Spinners
+    private val serviceTypes = listOf("Civic Issues", "Public Safety", "Healthcare", "Education")
+    private val departments = mapOf(
+        "Civic Issues" to listOf("Water Supply", "Roads", "Waste Management"),
+        "Public Safety" to listOf("Police", "Fire Services"),
+        "Healthcare" to listOf("Hospitals", "Sanitation"),
+        "Education" to listOf("Schools", "Colleges")
+    )
+    private val subDepartments = mapOf(
+        "Water Supply" to listOf("Leakage", "No Water Supply"),
+        "Roads" to listOf("Potholes", "Street Lights")
+    )
+    private val subServiceTypes = mapOf(
+        "Leakage" to listOf("Pipeline Leak", "Meter Leak"),
+        "Potholes" to listOf("Small Pothole", "Large Pothole")
+    )
+    private val districts = listOf("Bengaluru", "Mysuru", "Mangaluru", "Hubballi")
+    private val taluks = mapOf(
+        "Bengaluru" to listOf("Bengaluru North", "Bengaluru South", "Anekal"),
+        "Mysuru" to listOf("Mysuru City", "Nanjangud")
+    )
+
+    // Current state of attached files (dummy)
+    private var attachedDummyFiles: MutableList<String> = mutableListOf()
+
+
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        // Initialize UI elements
+        spinnerServiceType = findViewById(R.id.spinner_service_type)
+        spinnerDepartment = findViewById(R.id.spinner_department)
+        spinnerSubDepartment = findViewById(R.id.spinner_sub_department)
+        tvSubDepartment = findViewById(R.id.tv_sub_department)
+        spinnerSubServiceType = findViewById(R.id.spinner_sub_service_type)
+        tvSubServiceType = findViewById(R.id.tv_sub_service_type)
+        spinnerDistrict = findViewById(R.id.spinner_district)
+        spinnerTaluk = findViewById(R.id.spinner_taluk)
+        tvTaluk = findViewById(R.id.tv_taluk)
+        tvUserLocation = findViewById(R.id.tv_user_location)
+        etComplaintDetails = findViewById(R.id.et_complaint_details)
+        btnAttachFile = findViewById(R.id.btn_attach_file)
+        tvAttachedFilesCount = findViewById(R.id.tv_attached_files_count)
+        btnSubmitComplaint = findViewById(R.id.btn_submit_complaint)
+
+        setupSpinners()
+        setupListeners()
+        populateDummyLocation()
+    }
+
+    private fun setupSpinners() {
+        // Service Type
+        val serviceTypeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, serviceTypes)
+        serviceTypeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerServiceType.adapter = serviceTypeAdapter
+
+        spinnerServiceType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedService = serviceTypes[position]
+                // Update Department spinner based on Service Type
+                val departmentsForService = departments[selectedService] ?: emptyList()
+                populateSpinner(spinnerDepartment, departmentsForService)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Department (will be populated based on Service Type)
+        spinnerDepartment.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedDepartment = parent?.getItemAtPosition(position).toString()
+
+                // Conditionally show/hide Sub-department
+                val subDepartmentsForDept = subDepartments[selectedDepartment]
+                if (subDepartmentsForDept != null && subDepartmentsForDept.isNotEmpty()) {
+                    tvSubDepartment.visibility = View.VISIBLE
+                    spinnerSubDepartment.visibility = View.VISIBLE
+                    populateSpinner(spinnerSubDepartment, subDepartmentsForDept)
+                } else {
+                    tvSubDepartment.visibility = View.GONE
+                    spinnerSubDepartment.visibility = View.GONE
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Sub-department (will be populated based on Department)
+        spinnerSubDepartment.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedSubDepartment = parent?.getItemAtPosition(position).toString()
+
+                // Conditionally show/hide Sub-service Type
+                val subServiceTypesForSubDept = subServiceTypes[selectedSubDepartment]
+                if (subServiceTypesForSubDept != null && subServiceTypesForSubDept.isNotEmpty()) {
+                    tvSubServiceType.visibility = View.VISIBLE
+                    spinnerSubServiceType.visibility = View.VISIBLE
+                    populateSpinner(spinnerSubServiceType, subServiceTypesForSubDept)
+                } else {
+                    tvSubServiceType.visibility = View.GONE
+                    spinnerSubServiceType.visibility = View.GONE
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Sub-service Type (no further dependencies in this example)
+
+        // District
+        val districtAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, districts)
+        districtAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerDistrict.adapter = districtAdapter
+
+        spinnerDistrict.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedDistrict = districts[position]
+                // Conditionally show/hide Taluk
+                val taluksForDistrict = taluks[selectedDistrict]
+                if (taluksForDistrict != null && taluksForDistrict.isNotEmpty()) {
+                    tvTaluk.visibility = View.VISIBLE
+                    spinnerTaluk.visibility = View.VISIBLE
+                    populateSpinner(spinnerTaluk, taluksForDistrict)
+                } else {
+                    tvTaluk.visibility = View.GONE
+                    spinnerTaluk.visibility = View.GONE
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Taluk (no further dependencies)
+    }
+
+    // Helper function to populate any spinner
+    private fun populateSpinner(spinner: Spinner, data: List<String>) {
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, data)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
+    }
+
+    private fun setupListeners() {
+        btnAttachFile.setOnClickListener {
+            // Simulate attaching a file
+            val dummyFileName = "dummy_file_${attachedDummyFiles.size + 1}.jpg"
+            attachedDummyFiles.add(dummyFileName)
+            tvAttachedFilesCount.text = "${attachedDummyFiles.size} files attached"
+            Toast.makeText(this, "$dummyFileName attached!", Toast.LENGTH_SHORT).show()
+        }
+
+        btnSubmitComplaint.setOnClickListener {
+            submitComplaint()
+        }
+    }
+
+    private fun populateDummyLocation() {
+        // Simulate fetching location
+        tvUserLocation.text = "Dummy Location: 123, Sample Street, Bengaluru."
+    }
+
+    private fun submitComplaint() {
+        // Get selected values from Spinners
+        val serviceType = spinnerServiceType.selectedItem.toString()
+        val department = spinnerDepartment.selectedItem.toString()
+        val subDepartment = if (spinnerSubDepartment.visibility == View.VISIBLE) spinnerSubDepartment.selectedItem?.toString() else null
+        val subServiceType = if (spinnerSubServiceType.visibility == View.VISIBLE) spinnerSubServiceType.selectedItem?.toString() else null
+        val district = spinnerDistrict.selectedItem.toString()
+        val taluk = if (spinnerTaluk.visibility == View.VISIBLE) spinnerTaluk.selectedItem?.toString() else null
+        val userLocation = tvUserLocation.text.toString()
+        val complaintDetails = etComplaintDetails.text.toString().trim()
+
+        // Basic validation
+        if (complaintDetails.isEmpty()) {
+            Toast.makeText(this, "Please enter complaint details.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Generate a dummy complaint ID and token
+        val complaintId = UUID.randomUUID().toString()
+        val generatedToken = "COMPLAINT-${(100000..999999).random()}" // Dummy 6-digit token
+
+        // Create Complaint object
+        val newComplaint = Complaints(
+            id = complaintId,
+            serviceType = serviceType,
+            department = department,
+            subDepartment = subDepartment,
+            subServiceType = subServiceType,
+            district = district,
+            taluk = taluk,
+            userLocation = userLocation,
+            complaintDetails = complaintDetails,
+            attachedFiles = attachedDummyFiles.toList(), // Make a copy
+            generatedToken = generatedToken,
+            timestamp = System.currentTimeMillis()
+        )
+
+        // Store the complaint in the list
+        submittedComplaints.add(newComplaint)
+
+        // Log the complaint (for debugging)
+        Log.d("NewComplaintActivity", "Submitted Complaint: $newComplaint")
+        Log.d("NewComplaintActivity", "Total Complaints: ${submittedComplaints.size}")
+
+        // Show success message to user
+        Toast.makeText(this, "Complaint submitted! Token: $generatedToken", Toast.LENGTH_LONG).show()
+
+        // Optionally, clear the form or navigate to a "Track Previous Actions" screen
+        clearForm()
+    }
+
+    private fun clearForm() {
+        // Reset spinners to first item or default
+        spinnerServiceType.setSelection(0)
+        // Department spinner will reset via listener
+        // Sub-department/Sub-service Type/Taluk will hide via listeners
+        spinnerDistrict.setSelection(0)
+
+        etComplaintDetails.setText("")
+        attachedDummyFiles.clear()
+        tvAttachedFilesCount.text = "0 files attached"
+        // Re-populate dummy location if it changes
+        populateDummyLocation()
+    }
+}
+
+// 2nd file 
+
+
+package com.ather.dummyapplication
+
+
+data class Complaints(
+    val id: String, // Unique ID for each complaint
+    val serviceType: String,
+    val department: String,
+    val subDepartment: String?, // Nullable if optional
+    val subServiceType: String?, // Nullable if optional
+    val district: String,
+    val taluk: String?, // Nullable if optional
+    val userLocation: String?, // For fetched address (dummy in this case)
+    val complaintDetails: String, // From multi-line input
+    val attachedFiles: List<String>?, // List of file paths/URIs (dummy in this case)
+    val generatedToken: String?, // Placeholder for a generated token
+    val timestamp: Long // When the complaint was created (for sorting/tracking)
+)
+
+
+
+
+
+
+
+
+
+// xml file
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="New Complaint / Suggestion"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Service Type"
+            android:labelFor="@+id/spinner_service_type"
+            android:layout_marginBottom="4dp"/>
+        <Spinner
+            android:id="@+id/spinner_service_type"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:background="@android:drawable/btn_dropdown"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Department"
+            android:labelFor="@+id/spinner_department"
+            android:layout_marginBottom="4dp"/>
+        <Spinner
+            android:id="@+id/spinner_department"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:background="@android:drawable/btn_dropdown"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tv_sub_department"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sub-department"
+            android:labelFor="@+id/spinner_sub_department"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone"/>
+        <Spinner
+            android:id="@+id/spinner_sub_department"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:background="@android:drawable/btn_dropdown"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"/>
+
+        <TextView
+            android:id="@+id/tv_sub_service_type"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sub-service Type"
+            android:labelFor="@+id/spinner_sub_service_type"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone"/>
+        <Spinner
+            android:id="@+id/spinner_sub_service_type"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:background="@android:drawable/btn_dropdown"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="District"
+            android:labelFor="@+id/spinner_district"
+            android:layout_marginBottom="4dp"/>
+        <Spinner
+            android:id="@+id/spinner_district"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:background="@android:drawable/btn_dropdown"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tv_taluk"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Taluk (Optional)"
+            android:labelFor="@+id/spinner_taluk"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone"/>
+        <Spinner
+            android:id="@+id/spinner_taluk"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:background="@android:drawable/btn_dropdown"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Your Current Location (Simulated)"
+            android:labelFor="@+id/tv_user_location"
+            android:layout_marginBottom="4dp"/>
+        <TextView
+            android:id="@+id/tv_user_location"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:text="Fetching location..."
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Complaint Details / Remark"
+            android:labelFor="@+id/et_complaint_details"
+            android:layout_marginBottom="4dp"/>
+        <EditText
+            android:id="@+id/et_complaint_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="120dp"
+            android:gravity="top"
+            android:padding="12dp"
+            android:hint="Type your complaint or suggestion here..."
+            android:inputType="textMultiLine"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Attached Files (Dummy)"
+            android:layout_marginBottom="8dp"/>
+        <Button
+            android:id="@+id/btn_attach_file"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Attach Dummy File"
+            android:layout_marginBottom="16dp"/>
+        <TextView
+            android:id="@+id/tv_attached_files_count"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="0 files attached"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/btn_submit_complaint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Submit Complaint"
+            android:paddingVertical="12dp"
+            android:layout_marginTop="24dp"/>
+
+    </LinearLayout>
+</ScrollView>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
